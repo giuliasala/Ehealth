@@ -15,6 +15,8 @@ print(df.mode().iloc[0])
 df.fillna(value=df.mode().iloc[0], inplace=True)
 
 df.drop_duplicates(keep='first', inplace=True)
+df.reset_index(drop=True, inplace=True)
+print(df.info)
 
 plt.figure(1)
 plt.hist(df['age'],
