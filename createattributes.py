@@ -173,7 +173,7 @@ sns.heatmap(df_sum.corr(), vmin=-1, vmax=1, center=0, cmap='Spectral', annot=Tru
 
 # pca:
 # scale data
-df_sum = StandardScaler().fit_transform(df_sum)
+df_scaled = StandardScaler().fit_transform(df_sum)
 # perform pca to find out optimal number of components
 pca = PCA()
 pca.fit(df_scaled)
