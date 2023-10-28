@@ -9,12 +9,12 @@ print(f'nan in the df: {df.isnull().sum().sum()}')
 print(f'rows with at least 1 nan: {df.isnull().T.any().T.sum()}')
 print(f'columns with at least 1 nan: \n{df.isnull().any()}')
 
-mean_age = df['age'].mean()
-df['age'].fillna(value=mean_age, inplace=True)
 print(df.mode().iloc[0])
 df.fillna(value=df.mode().iloc[0], inplace=True)
 
 df.drop_duplicates(keep='first', inplace=True)
+df.reset_index(drop=True, inplace=True)
+print(df.info)
 
 plt.figure(1)
 plt.hist(df['age'],
@@ -414,6 +414,36 @@ plt.title('ccs_12')
 plt.figure(55)
 sns.heatmap(df.corr(), vmin=-1, vmax=1, center=0, cmap='Spectral')
 plt.show()
-# we can drop the gender as we see that it's not correlated to anything
-df.drop('gender', axis=1, inplace=True)
 
+# scale data ?
+df_sum = StandardScaler().fit_transform(df_sum)
+
+# perform pca to find out optimal number of components
+pca = PCA()
+pca.fit(df_sum)
+variance = pca.explained_variance_ratio_.cumsum()
+plt.figure(12)
+print(variance)
+plt.plot(range(1, len(variance) + 1), variance, marker='o')
+plt.xlabel('Number of Components')
+plt.ylabel('Cumulative Explained Variance')
+plt.title('Cumulative Explained Variance Plot')
+plt.show()
+
+# try with n=4
+pca3 = PCA(n_components=3)
+df3 = pca3.fit_transform(df_sum)
+df_3 = pd.DataFrame(df3, columns=['pc1', 'pc2', 'pc3'])
+print(df_3.info)
+# try with n=4
+pca4 = PCA(n_components=4)
+df4 = pca4.fit_transform(df_sum)
+df_4 = pd.DataFrame(df4, columns=['pc1', 'pc2', 'pc3', 'pc4'])
+print(df_4.info)
+# try with n=5
+pca5 = PCA(n_components=5)
+df5 = pca5.fit_transform(df_sum)
+df_5 = pd.DataFrame(df5, columns=['pc1', 'pc2', 'pc3', 'pc4', 'pc5'])
+print(df_5.info)
+
+# clustering k-medoids

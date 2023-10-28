@@ -170,17 +170,13 @@ plt.title('ccs score')
 # study correlation
 plt.figure(11)
 sns.heatmap(df_sum.corr(), vmin=-1, vmax=1, center=0, cmap='Spectral', annot=True)
-# drop the gender as we see that it's not correlated to anything: this may be because we have a lot of "prefer not to say"
-df_sum.drop('gender', axis=1, inplace=True)
 
 # pca:
 # scale data
 df_sum = StandardScaler().fit_transform(df_sum)
-# normalize ??
-# df_sum = normalize(df_sum)
 # perform pca to find out optimal number of components
 pca = PCA()
-pca.fit(df_sum)
+pca.fit(df_scaled)
 variance = pca.explained_variance_ratio_.cumsum()
 plt.figure(12)
 print(variance)
@@ -188,12 +184,20 @@ plt.plot(range(1, len(variance) + 1), variance, marker='o')
 plt.xlabel('Number of Components')
 plt.ylabel('Cumulative Explained Variance')
 plt.title('Cumulative Explained Variance Plot')
-
 plt.show()
-# try with n=4
-pca =PCA(n_components=4)
-pca.fit(df_sum)
 
+# try with n=3
+pca3 = PCA(n_components=3)
+df3 = pca3.fit_transform(df_scaled)
+df_3 = pd.DataFrame(df3, columns=['pc1', 'pc2', 'pc3'])
+print(df_3.info)
+# try with n=4
+pca4 = PCA(n_components=4)
+df4 = pca4.fit_transform(df_scaled)
+df_4 = pd.DataFrame(df4, columns=['pc1', 'pc2', 'pc3', 'pc4'])
+print(df_4.info)
 # try with n=5
-pca =PCA(n_components=5)
-pca.fit(df_sum)
+pca5 = PCA(n_components=5)
+df5 = pca5.fit_transform(df_scaled)
+df_5 = pd.DataFrame(df5, columns=['pc1', 'pc2', 'pc3', 'pc4', 'pc5'])
+print(df_5.info)
