@@ -7,10 +7,10 @@ from sklearn.metrics import silhouette_score
 from sklearn_extra.cluster import KMedoids
 from scipy import stats
 from statsmodels.stats.multitest import multipletests
-from prince import FAMD
+from sklearn.decomposition import PCA
 from scipy.stats import chi2_contingency
 
-df = pd.read_csv('project_data/dataset_project_eHealth20232024.csv')
+df = pd.read_csv('../project_data/dataset_project_eHealth20232024.csv')
 print(df.info)
 print(f'nan in the df: {df.isnull().sum().sum()}')
 print(f'rows with at least 1 nan: {df.isnull().T.any().T.sum()}')
@@ -194,18 +194,16 @@ encoder = OneHotEncoder(sparse_output=False)
 categorical_columns = ['gender', 'education', 'marital']  # replace with your actual categorical columns
 categorical_encoded = encoder.fit_transform(df_sum[categorical_columns])
 categorical_encoded_df = pd.DataFrame(categorical_encoded, columns=encoder.get_feature_names_out(categorical_columns))
-for column in encoder.get_feature_names_out(categorical_columns):
-    categorical_encoded_df[column] = categorical_encoded_df[column].astype('category')
-print(categorical_encoded_df)
 
 # scale data
-df_scaled = StandardScaler().fit_transform(df_numerical)
-# df_scaled = MinMaxScaler().fit_transform(df_numerical)
+df_scaled_num = RobustScaler().fit_transform(df_numerical)
+df_scaled_cat = RobustScaler().fit_transform(categorical_encoded_df)
 
-df_scaled = pd.DataFrame(df_scaled, columns=['age', 'income', 'phq', 'gad', 'eheals', 'heas', 'ccs'])
+df_scaled_num = pd.DataFrame(df_scaled_num, columns=['age', 'income', 'phq', 'gad', 'eheals', 'heas', 'ccs'])
+df_scaled_cat = pd.DataFrame(df_scaled_cat, columns=encoder.get_feature_names_out(categorical_columns))
 
 # outliers
-df_no_outliers = df_scaled.copy()
+df_no_outliers = df_scaled_num.copy()
 columns_to_process = ['income']
 for column in columns_to_process:
     z_scores = np.abs(stats.zscore(df_no_outliers[column]))
@@ -215,7 +213,9 @@ for column in columns_to_process:
 print(df_no_outliers)
 
 
-df_all = pd.concat([categorical_encoded_df, df_no_outliers], axis=1)
+df_all = pd.concat([df_scaled_cat, df_no_outliers], axis=1)
+print(df_all)
+
 
 # elbow method
 inertia = []  # empty list to store the sum of squared distances (inertia) for different K values
@@ -234,62 +234,33 @@ plt.grid()
 plt.show()
 
 
-famd = FAMD(n_components=23, random_state=42)  # 23 are the total components
-transformed_data = famd.transform(df_all)
-
-# compute explained variance -> the sum is always 1 by definition
-# this means that to understand how many components we have to use, we have to do the scree plot and search for the elbow
-eigenvalues = famd.eigenvalues_
-explained_variance = eigenvalues / eigenvalues.sum()
-cumulative_variance = np.cumsum(explained_variance)
-print(f'Cumulative Explained Variance: {cumulative_variance}')
-plt.plot(range(1, len(cumulative_variance) + 1), cumulative_variance, marker='o')
-plt.title('Cumulative Explained Variance Plot')
+# perform pca to find out optimal number of components
+pca = PCA()
+pca.fit(df_all)
+variance = pca.explained_variance_ratio_.cumsum()
+plt.figure(12)
+print(variance)
+plt.plot(range(1, len(variance) + 1), variance, marker='o')
 plt.xlabel('Number of Components')
 plt.ylabel('Cumulative Explained Variance')
-plt.show()
-
-
-famd = FAMD(n_components=9, random_state=42)  # 9 components cover 80% of variance
-famd.fit(df_all)
-transformed_data = famd.transform(df_all)
-
-# compute explained variance -> the sum is always 1 by definition
-# this means that to understand how many components we have to use, we have to do the scree plot and search for the elbow
-eigenvalues = famd.eigenvalues_
-explained_variance = eigenvalues / eigenvalues.sum()
-cumulative_variance = np.cumsum(explained_variance)
-print(f'Cumulative Explained Variance: {cumulative_variance}')
-plt.plot(range(1, len(cumulative_variance) + 1), cumulative_variance, marker='o')
 plt.title('Cumulative Explained Variance Plot')
-plt.xlabel('Number of Components')
-plt.ylabel('Cumulative Explained Variance')
 plt.show()
 
+# try 7 components
+pca = PCA(n_components=7)
+df_transformed = pca.fit_transform(df_all)
+df_transformed = pd.DataFrame(df_transformed, columns=['pc1', 'pc2', 'pc3', 'pc4', 'pc5', 'pc6', 'pc7'])
 
 # Create a KMedoids instance with the number of clusters (K)
 kmedoids = KMedoids(n_clusters=3, random_state=0)
-kmedoids.fit(df_all)
+kmedoids.fit(df_transformed)
 labels = kmedoids.labels_  # contain the cluster assignment for each data point
 medoid_indices = kmedoids.medoid_indices_  # contain the indices of medoids in dataset
 
-# Plot the clusters
-plt.figure(figsize=(10, 8))
-colors = ['navy', 'turquoise', 'darkorange']
-for cluster, color in zip(range(3), colors):
-    # Select only data observations with cluster label == current cluster
-    cluster_data = transformed_data[labels == cluster]
-    # Plot data observations
-    plt.scatter(cluster_data[0], cluster_data[1], s=50, color=color, label=f'Cluster {cluster}')
-# Label the axes
-plt.title('2D visualization of K-Medoids Clusters')
-plt.xlabel('FAMD Component 1')
-plt.ylabel('FAMD Component 2')
-# Show legend
-plt.legend()
+# plot clusters
 
 # silhouette
-silhouette_avg = silhouette_score(df_all, labels)
+silhouette_avg = silhouette_score(df_transformed, labels)
 print(f"Silhouette Score: {silhouette_avg}")
 print(np.bincount(labels))
 
