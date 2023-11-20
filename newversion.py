@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, OneHotEncoder
+from sklearn.preprocessing import RobustScaler, OneHotEncoder
 from sklearn.metrics import silhouette_score
 from sklearn_extra.cluster import KMedoids
 from scipy import stats
@@ -185,13 +185,13 @@ plt.figure(12)
 sns.heatmap(df_sum.corr(), vmin=-1, vmax=1, center=0, cmap='Spectral', annot=True)
 plt.show()
 
-df_numerical = df_sum.drop(columns=['gender', 'education', 'marital'])
-df_categorical = df_sum[['gender', 'education', 'marital']].copy()
+df_numerical = df_sum.drop(columns=['gender', 'marital']) # ??? education: treat it as numerical or categorical?
+df_categorical = df_sum[['gender', 'marital']].copy()
 print(df_numerical)
 print(df_categorical)
 
 encoder = OneHotEncoder(sparse_output=False)
-categorical_columns = ['gender', 'education', 'marital']  # replace with your actual categorical columns
+categorical_columns = ['gender', 'marital']  # replace with your actual categorical columns
 categorical_encoded = encoder.fit_transform(df_sum[categorical_columns])
 categorical_encoded_df = pd.DataFrame(categorical_encoded, columns=encoder.get_feature_names_out(categorical_columns))
 
@@ -199,17 +199,23 @@ categorical_encoded_df = pd.DataFrame(categorical_encoded, columns=encoder.get_f
 df_scaled_num = RobustScaler().fit_transform(df_numerical)
 df_scaled_cat = RobustScaler().fit_transform(categorical_encoded_df)
 
-df_scaled_num = pd.DataFrame(df_scaled_num, columns=['age', 'income', 'phq', 'gad', 'eheals', 'heas', 'ccs'])
+df_scaled_num = pd.DataFrame(df_scaled_num, columns=[col for col in df_numerical.columns])
 df_scaled_cat = pd.DataFrame(df_scaled_cat, columns=encoder.get_feature_names_out(categorical_columns))
 
-# outliers
+
+sns.boxplot(data=df_scaled_num)
+
+# only income has outliers
 df_no_outliers = df_scaled_num.copy()
-columns_to_process = ['income']
-for column in columns_to_process:
-    z_scores = np.abs(stats.zscore(df_no_outliers[column]))
-    outliers = (z_scores > 1.5)
-    median_value = df_no_outliers[column].median()  # Calculate median of the column
-    df_no_outliers.loc[outliers, column] = median_value  # Replace outliers with median value
+Q1 = df_no_outliers.quantile(0.25)
+Q3 = df_no_outliers.quantile(0.75)
+IQR = Q3 - Q1
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+median = df_no_outliers['income'].median()  # Calculate median of the column
+outliers = ((df_no_outliers['income'] < lower_bound['income']) | (df_no_outliers['income'] > upper_bound['income']))
+print(df_no_outliers[outliers])
+df_no_outliers['income'] = np.where(outliers, median, df_no_outliers['income'])  # Replace outliers with median value
 print(df_no_outliers)
 
 
@@ -222,7 +228,7 @@ inertia = []  # empty list to store the sum of squared distances (inertia) for d
 k_values = range(1, 11)
 for k in k_values:
     kmedoids = KMedoids(n_clusters=k, random_state=0)
-    kmedoids.fit(df_all)
+    kmedoids.fit(df_sum) # ??? should we do it with df_all or df_sum?
     inertia.append(kmedoids.inertia_)
 
 plt.figure(figsize=(8, 6))
@@ -246,10 +252,10 @@ plt.ylabel('Cumulative Explained Variance')
 plt.title('Cumulative Explained Variance Plot')
 plt.show()
 
-# try 7 components
-pca = PCA(n_components=7)
+
+pca = PCA(n_components=6) # ??? how many more then needed should we take, IF we should?
 df_transformed = pca.fit_transform(df_all)
-df_transformed = pd.DataFrame(df_transformed, columns=['pc1', 'pc2', 'pc3', 'pc4', 'pc5', 'pc6', 'pc7'])
+df_transformed = pd.DataFrame(df_transformed, columns=['pc1', 'pc2', 'pc3', 'pc4', 'pc5', 'pc6'])
 
 # Create a KMedoids instance with the number of clusters (K)
 kmedoids = KMedoids(n_clusters=3, random_state=0)
@@ -257,7 +263,25 @@ kmedoids.fit(df_transformed)
 labels = kmedoids.labels_  # contain the cluster assignment for each data point
 medoid_indices = kmedoids.medoid_indices_  # contain the indices of medoids in dataset
 
+#plot 3d clusters
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+# Visualize the clusters in 3D
+ax.scatter(df_transformed['pc1'], df_transformed['pc2'], df_transformed['pc3'], c=labels, cmap='rainbow')
+# Set labels for the axes
+ax.set_xlabel('pc1')
+ax.set_ylabel('pc2')
+ax.set_zlabel('pc3')
+plt.show()
+
 # plot clusters
+plt.figure(figsize=(8, 6))
+plt.scatter(df_transformed['pc1'], df_transformed['pc2'], c=labels, cmap='rainbow', alpha=0.5)
+plt.title('K-Medoids Clustering')
+plt.xlabel('PC1')
+plt.ylabel('PC2')
+plt.colorbar(label='Cluster')
+plt.show()
 
 # silhouette
 silhouette_avg = silhouette_score(df_transformed, labels)
@@ -327,7 +351,7 @@ df_categorical['Cluster'] = labels
 print(df_categorical)
 
 # Create a contingency table
-columns_to_test = ['gender', 'education', 'marital']
+columns_to_test = [col for col in df_categorical.columns if col != "Cluster"]
 results = []
 for column in columns_to_test:
     contingency_table = pd.crosstab(df_categorical[column], df_categorical['Cluster'])
