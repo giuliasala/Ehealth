@@ -8,7 +8,7 @@ from sklearn_extra.cluster import KMedoids
 from scipy import stats
 from statsmodels.stats.multitest import multipletests
 from sklearn.decomposition import PCA
-from scipy.stats import chi2_contingency
+from scipy.stats import chi2_contingency, kstest
 
 df = pd.read_csv('../project_data/dataset_project_eHealth20232024.csv')
 print(df.info)
@@ -56,10 +56,10 @@ print(f'heas sum: {sum_heas}')
 # we have to find the threshold!
 
 # reverse score of ccs 3, 6, 7, 12
-df['ccs_3'] = df['ccs_3'].max() - df['ccs_3']
-df['ccs_6'] = df['ccs_6'].max() - df['ccs_6']
-df['ccs_7'] = df['ccs_7'].max() - df['ccs_7']
-df['ccs_12'] = df['ccs_12'].max() - df['ccs_12']
+df['ccs_3'] = 6 - df['ccs_3']
+df['ccs_6'] = 6 - df['ccs_6']
+df['ccs_7'] = 6 - df['ccs_7']
+df['ccs_12'] = 6 - df['ccs_12']
 
 col_ccs = ['ccs_1', 'ccs_2', 'ccs_3', 'ccs_4', 'ccs_5', 'ccs_6', 'ccs_7', 'ccs_8', 'ccs_9', 'ccs_10', 'ccs_11', 'ccs_12']
 sum_ccs = []
@@ -82,6 +82,33 @@ data2 = {
 df2 = pd.DataFrame(data2)
 df_sum = pd.concat([df1, df2], axis=1)
 print(df_sum.info)
+
+df_numerical = df_sum.drop(columns=['gender', 'education', 'marital']) # ??? education: treat it as numerical or categorical?
+df_categorical = df_sum[['gender', 'education', 'marital']].copy()
+print(df_numerical)
+print(df_categorical)
+
+attributes_to_plot = [col for col in df_numerical.columns]
+plt.figure(figsize=(10, 6 * len(attributes_to_plot)))
+for i, attribute in enumerate(attributes_to_plot, 1):
+    plt.subplot(len(attributes_to_plot), 1, i)
+    plt.boxplot(df_numerical[attribute])
+    plt.title(f'Boxplot of {attribute}')
+    plt.ylabel('Values')
+    plt.xlabel(attribute)
+    plt.tight_layout()
+
+# only income has outliers
+df_no_outliers = df_numerical.copy()
+Q1 = df_no_outliers['income'].quantile(0.25)
+Q3 = df_no_outliers['income'].quantile(0.75)
+IQR = Q3 - Q1
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+outliers = ((df_no_outliers['income'] < lower_bound) | (df_no_outliers['income'] > upper_bound))
+print(df_no_outliers[outliers])
+df_no_outliers['income'] = df_no_outliers['income'].apply(lambda x: upper_bound if x > upper_bound else x)  # Replace outliers with the highest value in the range
+print(df_no_outliers)
 
 plt.figure(1)
 plt.hist(df_sum['age'],
@@ -126,15 +153,6 @@ plt.ylabel('n of people')
 plt.title('income')
 
 plt.figure(6)
-plt.hist(df_sum['income'],
-         bins=np.arange(min(df_sum['income']), max(df_sum['income'])+15000, 15000),
-         color='skyblue', ec='blue')
-plt.xlabel('income')
-plt.xticks(ticks=np.arange(min(df_sum['income']), max(df_sum['income'])+15000, 15000))
-plt.ylabel('n of people')
-plt.title('income')
-
-plt.figure(7)
 plt.hist(df_sum['phq'],
          bins=np.arange(start=min(df_sum['phq'])-0.5, stop=max(df_sum['phq'])+1.5, step=1),
          color='skyblue', ec='blue')
@@ -143,7 +161,7 @@ plt.xticks(ticks=np.arange(min(df_sum['phq']), max(df_sum['phq'])+1, 1))
 plt.ylabel('n of people')
 plt.title('phq score')
 
-plt.figure(8)
+plt.figure(7)
 plt.hist(df_sum['gad'],
          bins=np.arange(start=min(df_sum['gad'])-0.5, stop=max(df_sum['gad'])+1.5, step=1),
          color='skyblue', ec='blue')
@@ -152,7 +170,7 @@ plt.xticks(ticks=np.arange(min(df_sum['gad']), max(df_sum['gad'])+1, 1))
 plt.ylabel('n of people')
 plt.title('gad score')
 
-plt.figure(9)
+plt.figure(8)
 plt.hist(df_sum['eheals'],
          bins=np.arange(start=min(df_sum['eheals'])-0.5, stop=max(df_sum['eheals'])+1.5, step=1),
          color='skyblue', ec='blue')
@@ -161,7 +179,7 @@ plt.xticks(ticks=np.arange(min(df_sum['eheals']), max(df_sum['eheals'])+1, 2))
 plt.ylabel('n of people')
 plt.title('eheals score')
 
-plt.figure(10)
+plt.figure(9)
 plt.hist(df_sum['heas'],
          bins=np.arange(start=min(df_sum['heas'])-0.5, stop=max(df_sum['heas'])+1.5, step=1),
          color='skyblue', ec='blue')
@@ -170,7 +188,7 @@ plt.xticks(ticks=np.arange(min(df_sum['heas']), max(df_sum['heas'])+1, 2))
 plt.ylabel('n of people')
 plt.title('heas score')
 
-plt.figure(11)
+plt.figure(10)
 plt.hist(df_sum['ccs'],
          bins=np.arange(start=min(df_sum['ccs'])-0.5, stop=max(df_sum['ccs'])+1.5, step=1),
          color='skyblue', ec='blue')
@@ -185,60 +203,26 @@ plt.figure(12)
 sns.heatmap(df_sum.corr(), vmin=-1, vmax=1, center=0, cmap='Spectral', annot=True)
 plt.show()
 
-df_numerical = df_sum.drop(columns=['gender', 'marital']) # ??? education: treat it as numerical or categorical?
-df_categorical = df_sum[['gender', 'marital']].copy()
-print(df_numerical)
-print(df_categorical)
+# Perform Kolmogorov-Smirnov test
+for col in df_numerical.columns:
+    ks_statistic, ks_p_value = kstest(df_numerical[col], 'norm')
+    print(f'Kolmogorov-Smirnov test for {col}:')
+    print(f'KS Statistic: {ks_statistic}')
+    print(f'p-value: {ks_p_value}')
+# we reject the hipothesis that data is normally distributed
 
 encoder = OneHotEncoder(sparse_output=False)
-categorical_columns = ['gender', 'marital']  # replace with your actual categorical columns
+categorical_columns = ['gender', 'education', 'marital']
 categorical_encoded = encoder.fit_transform(df_sum[categorical_columns])
 categorical_encoded_df = pd.DataFrame(categorical_encoded, columns=encoder.get_feature_names_out(categorical_columns))
 
+df_tot = pd.concat([categorical_encoded_df, df_no_outliers], axis=1)
+print(df_tot)
+
 # scale data
-df_scaled_num = RobustScaler().fit_transform(df_numerical)
-df_scaled_cat = RobustScaler().fit_transform(categorical_encoded_df)
-
-df_scaled_num = pd.DataFrame(df_scaled_num, columns=[col for col in df_numerical.columns])
-df_scaled_cat = pd.DataFrame(df_scaled_cat, columns=encoder.get_feature_names_out(categorical_columns))
-
-
-sns.boxplot(data=df_scaled_num)
-
-# only income has outliers
-df_no_outliers = df_scaled_num.copy()
-Q1 = df_no_outliers.quantile(0.25)
-Q3 = df_no_outliers.quantile(0.75)
-IQR = Q3 - Q1
-lower_bound = Q1 - 1.5 * IQR
-upper_bound = Q3 + 1.5 * IQR
-median = df_no_outliers['income'].median()  # Calculate median of the column
-outliers = ((df_no_outliers['income'] < lower_bound['income']) | (df_no_outliers['income'] > upper_bound['income']))
-print(df_no_outliers[outliers])
-df_no_outliers['income'] = np.where(outliers, median, df_no_outliers['income'])  # Replace outliers with median value
-print(df_no_outliers)
-
-
-df_all = pd.concat([df_scaled_cat, df_no_outliers], axis=1)
+df_all = RobustScaler().fit_transform(df_tot)
+df_all = pd.DataFrame(df_all, columns=[col for col in df_tot.columns])
 print(df_all)
-
-
-# elbow method
-inertia = []  # empty list to store the sum of squared distances (inertia) for different K values
-k_values = range(1, 11)
-for k in k_values:
-    kmedoids = KMedoids(n_clusters=k, random_state=0)
-    kmedoids.fit(df_sum) # ??? should we do it with df_all or df_sum?
-    inertia.append(kmedoids.inertia_)
-
-plt.figure(figsize=(8, 6))
-plt.plot(k_values, inertia, marker='o')
-plt.xlabel('Number of Clusters (K)')
-plt.ylabel('Inertia')
-plt.title('Elbow Method')
-plt.grid()
-plt.show()
-
 
 # perform pca to find out optimal number of components
 pca = PCA()
@@ -253,51 +237,45 @@ plt.title('Cumulative Explained Variance Plot')
 plt.show()
 
 
-pca = PCA(n_components=6) # ??? how many more then needed should we take, IF we should?
+pca = PCA(n_components=9)  # ??? how many more than needed should we take, IF we should?
 df_transformed = pca.fit_transform(df_all)
-df_transformed = pd.DataFrame(df_transformed, columns=['pc1', 'pc2', 'pc3', 'pc4', 'pc5', 'pc6'])
+df_transformed = pd.DataFrame(df_transformed, columns=['pc1', 'pc2', 'pc3', 'pc4', 'pc5', 'pc6', 'pc7', 'pc8', 'pc9'])
 
-# Create a KMedoids instance with the number of clusters (K)
-kmedoids = KMedoids(n_clusters=3, random_state=0)
+# elbow method
+inertia = []  # empty list to store the sum of squared distances for different K values
+k_values = range(1, 11)
+for k in k_values:
+    kmedoids = KMedoids(n_clusters=k, random_state=0)
+    kmedoids.fit(df_transformed)
+    inertia.append(kmedoids.inertia_)
+plt.figure(figsize=(8, 6))
+plt.plot(k_values, inertia, marker='o')
+plt.xlabel('Number of Clusters (K)')
+plt.ylabel('Inertia')
+plt.title('Elbow Method')
+plt.grid()
+plt.show()
+
+# KMedoids
+kmedoids = KMedoids(n_clusters=3, random_state=0, init='k-medoids++', metric='seuclidean', method='pam', max_iter=100)
 kmedoids.fit(df_transformed)
 labels = kmedoids.labels_  # contain the cluster assignment for each data point
 medoid_indices = kmedoids.medoid_indices_  # contain the indices of medoids in dataset
 
-#plot 3d clusters
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-# Visualize the clusters in 3D
-ax.scatter(df_transformed['pc1'], df_transformed['pc2'], df_transformed['pc3'], c=labels, cmap='rainbow')
-# Set labels for the axes
-ax.set_xlabel('pc1')
-ax.set_ylabel('pc2')
-ax.set_zlabel('pc3')
-plt.show()
-
-# plot clusters
-plt.figure(figsize=(8, 6))
-plt.scatter(df_transformed['pc1'], df_transformed['pc2'], c=labels, cmap='rainbow', alpha=0.5)
-plt.title('K-Medoids Clustering')
-plt.xlabel('PC1')
-plt.ylabel('PC2')
-plt.colorbar(label='Cluster')
-plt.show()
-
-# silhouette
+# silhouette score
 silhouette_avg = silhouette_score(df_transformed, labels)
 print(f"Silhouette Score: {silhouette_avg}")
 print(np.bincount(labels))
 
 
 feature_columns = [col for col in df_sum.columns]
+
+
 # Add the cluster labels to the DataFrame
-df_sum['Cluster'] = labels
-
-
 df_numerical['Cluster'] = labels
 print(df_numerical)
 
-#Kruskal-Wallis Test for df_numerical
+# Kruskal-Wallis Test for df_numerical
 feature_numerical = [col for col in df_numerical.columns if col != "Cluster"]
 for feature in feature_numerical:
     groups = [df_numerical[df_numerical['Cluster'] == cluster][[feature]] for cluster in df_numerical['Cluster'].unique()]
