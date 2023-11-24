@@ -8,7 +8,7 @@ from sklearn_extra.cluster import KMedoids
 from scipy import stats
 from statsmodels.stats.multitest import multipletests
 from sklearn.decomposition import PCA
-from scipy.stats import chi2_contingency, kstest
+from scipy.stats import kstest
 
 df = pd.read_csv('../project_data/dataset_project_eHealth20232024.csv')
 print(df.info)
@@ -110,7 +110,7 @@ print(df_no_outliers[outliers])
 df_no_outliers['income'] = df_no_outliers['income'].apply(lambda x: upper_bound if x > upper_bound else x)  # Replace outliers with the highest value in the range
 print(df_no_outliers)
 
-plt.figure(1)
+plt.figure()
 plt.hist(df_sum['age'],
          bins=np.arange(start=min(df_sum['age']), stop=max(df_sum['age'])+1, step=5),  # distribute the bars every n(=step) years
          color='skyblue', ec='blue')
@@ -119,7 +119,7 @@ plt.xticks(ticks=np.arange(min(df_sum['age']), max(df_sum['age'])+1, 5))  # adap
 plt.ylabel('n of people')
 plt.title('age')
 
-plt.figure(2)
+plt.figure()
 plt.hist(df_sum['gender'], bins=[-0.5, 0.5, 1.5, 2.5, 3.5], color='skyblue', ec='blue')
 plt.xlabel('gender')
 labels_gen = ['male', 'female', 'non binary', 'prefer not to say']
@@ -127,7 +127,7 @@ plt.xticks(ticks=[0, 1, 2, 3], labels=labels_gen)
 plt.ylabel('n of people')
 plt.title('gender')
 
-plt.figure(3)
+plt.figure()
 bin_centers = [np.mean([bin_left, bin_right]) for bin_left, bin_right in zip([0, 5, 8, 13, 18, 22, 25], [5, 8, 13, 18, 22, 25, 28])]
 plt.hist(df_sum['education'], bins=bin_centers, color='skyblue', ec='blue')
 plt.xlabel('education')
@@ -136,14 +136,14 @@ plt.xticks(ticks=[5, 8, 13, 18, 22, 25], labels=labels_edu)
 plt.ylabel('n of people')
 plt.title('education')
 
-plt.figure(4)
+plt.figure()
 plt.hist(df_sum['marital'], bins=[-0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5], color='skyblue', ec='blue')
 plt.xlabel('marital status')
 plt.xticks(ticks=[0, 1, 2, 3, 4, 5], labels=['single', 'married', 'divorced', 'widowed', 'separated', 'pnts'])
 plt.ylabel('n of people')
 plt.title('marital status')
 
-plt.figure(5)
+plt.figure()
 plt.hist(df_sum['income'],
          bins=np.arange(start=min(df_sum['income']), stop=max(df_sum['income'])+5000, step=5000),
          color='skyblue', ec='blue')
@@ -152,7 +152,7 @@ plt.xticks(ticks=np.arange(min(df_sum['income']), max(df_sum['income'])+5000, 50
 plt.ylabel('n of people')
 plt.title('income')
 
-plt.figure(6)
+plt.figure()
 plt.hist(df_sum['phq'],
          bins=np.arange(start=min(df_sum['phq'])-0.5, stop=max(df_sum['phq'])+1.5, step=1),
          color='skyblue', ec='blue')
@@ -161,7 +161,7 @@ plt.xticks(ticks=np.arange(min(df_sum['phq']), max(df_sum['phq'])+1, 1))
 plt.ylabel('n of people')
 plt.title('phq score')
 
-plt.figure(7)
+plt.figure()
 plt.hist(df_sum['gad'],
          bins=np.arange(start=min(df_sum['gad'])-0.5, stop=max(df_sum['gad'])+1.5, step=1),
          color='skyblue', ec='blue')
@@ -170,7 +170,7 @@ plt.xticks(ticks=np.arange(min(df_sum['gad']), max(df_sum['gad'])+1, 1))
 plt.ylabel('n of people')
 plt.title('gad score')
 
-plt.figure(8)
+plt.figure()
 plt.hist(df_sum['eheals'],
          bins=np.arange(start=min(df_sum['eheals'])-0.5, stop=max(df_sum['eheals'])+1.5, step=1),
          color='skyblue', ec='blue')
@@ -179,7 +179,7 @@ plt.xticks(ticks=np.arange(min(df_sum['eheals']), max(df_sum['eheals'])+1, 2))
 plt.ylabel('n of people')
 plt.title('eheals score')
 
-plt.figure(9)
+plt.figure()
 plt.hist(df_sum['heas'],
          bins=np.arange(start=min(df_sum['heas'])-0.5, stop=max(df_sum['heas'])+1.5, step=1),
          color='skyblue', ec='blue')
@@ -188,7 +188,7 @@ plt.xticks(ticks=np.arange(min(df_sum['heas']), max(df_sum['heas'])+1, 2))
 plt.ylabel('n of people')
 plt.title('heas score')
 
-plt.figure(10)
+plt.figure()
 plt.hist(df_sum['ccs'],
          bins=np.arange(start=min(df_sum['ccs'])-0.5, stop=max(df_sum['ccs'])+1.5, step=1),
          color='skyblue', ec='blue')
@@ -237,9 +237,9 @@ plt.title('Cumulative Explained Variance Plot')
 plt.show()
 
 
-pca = PCA(n_components=9)  # ??? how many more than needed should we take, IF we should?
+pca = PCA(n_components=7)  # ??? how many more than needed should we take, IF we should?
 df_transformed = pca.fit_transform(df_all)
-df_transformed = pd.DataFrame(df_transformed, columns=['pc1', 'pc2', 'pc3', 'pc4', 'pc5', 'pc6', 'pc7', 'pc8', 'pc9'])
+df_transformed = pd.DataFrame(df_transformed, columns=['pc1', 'pc2', 'pc3', 'pc4', 'pc5', 'pc6', 'pc7'])
 
 # elbow method
 inertia = []  # empty list to store the sum of squared distances for different K values
@@ -328,34 +328,10 @@ print(results_df)
 df_categorical['Cluster'] = labels
 print(df_categorical)
 
-# Create a contingency table
 columns_to_test = [col for col in df_categorical.columns if col != "Cluster"]
-results = []
 for column in columns_to_test:
     contingency_table = pd.crosstab(df_categorical[column], df_categorical['Cluster'])
-    # Print the contingency table and its shape
     print(f"\nContingency Table for {column}:")
     print(contingency_table)
     print(f"Shape: {contingency_table.shape}")
-    # Fisher's exact test is only performed on 2x2 tables (variables with 2 categories), so we don't do it
-    # Chi-square test
-    chi2_stat, chi2_p_value, _, _ = chi2_contingency(contingency_table)
-    print(f"Chi-square Test for {column}: Statistic - {chi2_stat}, P-Value - {chi2_p_value}")
-    results.append({
-        'Variable': column,
-        'Chi2_Statistic': chi2_stat,
-        'Chi2_P_Value': chi2_p_value
-    })
-
-# Bonferroni correction
-alpha = 0.05
-correction_method = 'bonferroni'
-p_values = [result['Chi2_P_Value'] for result in results]
-reject, corrected_p_values, _, _ = multipletests(p_values, alpha=alpha, method=correction_method)
-# Update the results with corrected p-values
-for i, result in enumerate(results):
-    result['Chi2_Corrected_P_Value'] = corrected_p_values[i]
-# Print the results with corrected p-values
-for result in results:
-    print(f"\nResults for {result['Variable']}:")
-    print(f"Chi-square Test - Statistic: {result['Chi2_Statistic']}, Corrected P-Value: {result['Chi2_Corrected_P_Value']}")
+    contingency_table.to_csv(f"{column}_contingency_table.csv", index=True, header=True)
