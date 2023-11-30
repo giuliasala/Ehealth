@@ -1,6 +1,3 @@
-# set the working directory
-setwd("C:/Users/giuli/OneDrive/Desktop/uni/magistrale/2° anno/e-health methods and applications/lab/Ehealth")
-
 # import cvs files with the contingency tables of the categorical variables that we created in pycharm
 gender <- read.csv("gender_contingency_table.csv", header = FALSE, skip = 1, row.names = 1)
 education <- read.csv("education_contingency_table.csv", header = FALSE, skip = 1, row.names = 1)
