@@ -3,7 +3,7 @@ gender <- read.csv("gender_contingency_table.csv", header = FALSE, skip = 1, row
 education <- read.csv("education_contingency_table.csv", header = FALSE, skip = 1, row.names = 1)
 marital <- read.csv("marital_contingency_table.csv", header = FALSE, skip = 1, row.names = 1)
 
-num_simulations <- 100000 # the higher this number, the more accurate the simulation (but also computationally long)
+num_simulations <- 900000 # the higher this number, the more accurate the simulation (but also computationally long)
 # perform Fisher's test
 fisher_result_gender <- fisher.test(gender, simulate.p.value = TRUE, B = num_simulations)
 fisher_result_education <- fisher.test(education, simulate.p.value = TRUE, B = num_simulations)
