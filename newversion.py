@@ -5,19 +5,22 @@ import numpy as np
 import seaborn as sns
 import itertools
 from sklearn.preprocessing import RobustScaler, OneHotEncoder
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_score, silhouette_samples
 from sklearn_extra.cluster import KMedoids
 from scipy import stats
 from statsmodels.stats.multitest import multipletests
 from sklearn.decomposition import PCA
 from scipy.stats import kstest
 from prince import FAMD
+import time
+
+plt.rcParams['figure.max_open_warning'] = 50
 
 # read the cvs file
 df = pd.read_csv('../project_data/dataset_project_eHealth20232024.csv')
-# print information about the dataframe
-print('\ndataframe info:')
-print(df.info)
+# print the dataframe
+print('\ndataframe:')
+print(df)
 
 # CLEANING
 # print the number NaN in the dataframe, the number of rows and the columns that contain NaN
@@ -32,8 +35,8 @@ df.fillna(value=df.median(), inplace=True)
 # drop the duplicate rows in the dataframe
 df.drop_duplicates(keep='first', inplace=True)
 df.reset_index(drop=True, inplace=True)
-print('\ndataframe info after dropping duplicates:')
-print(df.info)
+print('\ndataframe after dropping duplicates:')
+print(df)
 
 # create one attribute for each questionnaire, by summing all the scores of the questions
 col_phq = ['phq_1', 'phq_2', 'phq_3', 'phq_4', 'phq_5', 'phq_6', 'phq_7', 'phq_8', 'phq_9']
@@ -81,7 +84,8 @@ for row_index in range(150):
 print(f'CCS sum: {sum_ccs}')
 
 # create the new dataframe (df_sum)
-# with the original columns for age, gender, education, marital and income
+pd.set_option('display.max_columns', None)  # set this option in order to see all columns when printing the dataframes
+# take original columns for age, gender, education, marital and income
 # and with the new columns for the questionnaires
 df1 = df[['age', 'gender', 'education', 'marital', 'income']]
 data2 = {
@@ -93,8 +97,9 @@ data2 = {
 }
 df2 = pd.DataFrame(data2)
 df_sum = pd.concat([df1, df2], axis=1)
-print('\ndf_sum:')
-print(df_sum.info)
+print('\ndf_sum info:')
+print(df_sum.info())
+print(df_sum)
 
 # create two different dataframes for categorical (gender, education, marital)
 # and numerical variables (age, income and the 5 questionnaires: phq, gad, eheals, heas, ccs)
@@ -116,7 +121,7 @@ for i, attribute in enumerate(attributes_to_plot, 1):
     plt.xlabel(attribute)
     plt.tight_layout()
 
-# we can see that only income has outliers and they are
+# we can see that only income has outliers
 # identify outliers using the Inter-Quartile Range method
 df_no_outliers = df_numerical.copy()
 Q1 = df_no_outliers['income'].quantile(0.25)
@@ -278,23 +283,15 @@ print(df_categorical)
 
 # create dataframe that we will use to perform PCA: cleaned numerical data + one hot encoded categorical data
 df_tot_pca = pd.concat([categorical_encoded_df, df_no_outliers], axis=1)
-print('\ndf for PCA:')
-print(df_tot_pca)
 # scale data using the robust scaler
 df_all_pca = RobustScaler().fit_transform(df_tot_pca)
 df_all_pca = pd.DataFrame(df_all_pca, columns=[col for col in df_tot_pca.columns])
-print('\ndf for PCA, scaled:')
-print(df_all_pca)
 
 # create dataframe that we will use to perform FAMD: cleaned numerical data + categorical data (with mapped education)
 df_tot_famd = pd.concat([df_categorical, df_no_outliers], axis=1)
-print('\ndf for FAMD:')
-print(df_tot_famd)
 # scale data using the robust scaler
 df_all_famd = RobustScaler().fit_transform(df_tot_famd)
 df_all_famd = pd.DataFrame(df_all_famd, columns=[col for col in df_tot_famd.columns])
-print('\ndf for FAMD, scaled:')
-print(df_all_famd)
 
 # PCA
 # first, perform PCA to print the overall explained variance and find out the optimal number of components
@@ -302,7 +299,7 @@ pca = PCA()
 pca.fit(df_all_pca)
 variance = pca.explained_variance_ratio_.cumsum()
 plt.figure(12)
-print(variance)
+print(f'Comulative explained variance PCA: {variance}')
 plt.plot(range(1, len(variance) + 1), variance, marker='o')
 plt.title('Cumulative Explained Variance PCA')
 plt.xlabel('Number of Components')
@@ -319,13 +316,14 @@ categorical_columns = ["gender", "education", "marital"]
 for column in categorical_columns:
     df_all_famd[categorical_columns] = df_all_famd[categorical_columns].astype('category')
 
-# first, perform FAMD to print the overall explained variance and find out the optimal number of components
+# first, perform FAMD with all the features,
+# to print the overall explained variance and find out the optimal number of components
 famd = FAMD(n_components=9, n_iter=7, random_state=42)
 famd.fit_transform(df_all_famd)
 eigenvalues = famd.eigenvalues_
 explained_variance = eigenvalues / eigenvalues.sum()
 cumulative_variance=np.cumsum(explained_variance)
-print(f'Explained Variance: {cumulative_variance}')
+print(f' Cumulative Explained Variance FAMD: {cumulative_variance}')
 plt.figure()
 plt.plot(range(1, len(cumulative_variance) + 1), cumulative_variance, marker='o')
 plt.title('Cumulative Explained Variance FAMD')
@@ -337,12 +335,13 @@ famd = FAMD(n_components=6, n_iter=7, random_state=42)
 data_transformed_famd = famd.fit_transform(df_all_famd)
 df_transformed_famd = pd.DataFrame(data_transformed_famd)
 
+# CLUSTERING
 # In order to define the optimal number of clusters, we can use both the graphical and the analytical method:
 
 # Elbow method for each one of the spaces we have:
 # (1) No preprocessing, using the one hot encoded df
 inertia = []
-k_values = range(1, 11)
+k_values = range(2, 11)
 for k in k_values:
     kmedoids = KMedoids(n_clusters=k,
                         random_state=0,
@@ -352,7 +351,7 @@ for k in k_values:
                         max_iter=100)
     kmedoids.fit(df_all_pca)
     inertia.append(kmedoids.inertia_)
-plt.figure(figsize=(8, 6))
+plt.figure()
 plt.plot(k_values, inertia, marker='o')
 plt.xlabel('Number of Clusters (K)')
 plt.ylabel('Inertia')
@@ -361,7 +360,7 @@ plt.grid()
 
 # (2) No preprocessing, using the df with mapped education
 inertia = []
-k_values = range(1, 11)
+k_values = range(2, 11)
 for k in k_values:
     kmedoids = KMedoids(n_clusters=k,
                         random_state=0,
@@ -371,7 +370,7 @@ for k in k_values:
                         max_iter=100)
     kmedoids.fit(df_all_famd)
     inertia.append(kmedoids.inertia_)
-plt.figure(figsize=(8, 6))
+plt.figure()
 plt.plot(k_values, inertia, marker='o')
 plt.xlabel('Number of Clusters (K)')
 plt.ylabel('Inertia')
@@ -380,7 +379,7 @@ plt.grid()
 
 # (3) PCA
 inertia = []
-k_values = range(1, 11)
+k_values = range(2, 11)
 for k in k_values:
     kmedoids = KMedoids(n_clusters=k,
                         random_state=0,
@@ -390,7 +389,7 @@ for k in k_values:
                         max_iter=100)
     kmedoids.fit(df_transformed_pca)
     inertia.append(kmedoids.inertia_)
-plt.figure(figsize=(8, 6))
+plt.figure()
 plt.plot(k_values, inertia, marker='o')
 plt.xlabel('Number of Clusters (K)')
 plt.ylabel('Inertia')
@@ -399,7 +398,7 @@ plt.grid()
 
 # (4) FAMD
 inertia = []
-k_values = range(1, 11)
+k_values = range(2, 11)
 for k in k_values:
     kmedoids = KMedoids(n_clusters=k,
                         random_state=0,
@@ -409,7 +408,7 @@ for k in k_values:
                         max_iter=100)
     kmedoids.fit(df_transformed_famd)
     inertia.append(kmedoids.inertia_)
-plt.figure(figsize=(8, 6))
+plt.figure()
 plt.plot(k_values, inertia, marker='o')
 plt.xlabel('Number of Clusters (K)')
 plt.ylabel('Inertia')
@@ -443,6 +442,54 @@ plt.ylabel('Silhouette Score')
 plt.legend()
 plt.grid()
 
+# Another analytical method to plot the silhouette scores:
+# Plot silhouette analysis for each dataset
+for method, data in datasets.items():
+    range_n_clusters = [2, 3, 4, 5, 6]  # we take a smaller range than before
+    for k in range_n_clusters:
+        plt.figure()
+        kmedoids = KMedoids(n_clusters=k,
+                            random_state=0,
+                            init='k-medoids++',
+                            metric='seuclidean',
+                            method='pam',
+                            max_iter=100)
+        labels = kmedoids.fit_predict(data)
+        silhouette_avg = silhouette_score(data, labels)
+        print(
+            "For n_clusters =",
+            k,
+            "The average silhouette_score is :",
+            silhouette_avg,
+        )
+        # compute the silhouette scores for each sample
+        sample_silhouette_values = silhouette_samples(data, labels)
+        y_lower = 10
+        for i in range(k):
+            # aggregate the silhouette scores for samples belonging to cluster i, and sort them
+            ith_cluster_silhouette_values = sample_silhouette_values[labels == i]
+            ith_cluster_silhouette_values.sort()
+            size_cluster_i = ith_cluster_silhouette_values.shape[0]
+            y_upper = y_lower + size_cluster_i
+            plt.fill_betweenx(
+                np.arange(y_lower, y_upper),
+                0,
+                ith_cluster_silhouette_values,
+                alpha=0.7,
+            )
+
+            # Label the silhouette plots with their cluster numbers at the middle
+            plt.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
+
+            # Compute the new y_lower for next plot
+            y_lower = y_upper + 10  # 10 for the 0 samples
+
+        plt.title(f"Silhouette analysis on {method} with n_clusters = {k}")
+        plt.xlabel("The silhouette coefficient values")
+        plt.ylabel("Cluster label")
+        # vertical line for average silhouette score of all the values
+        plt.axvline(x=silhouette_avg, color="red", linestyle="--")
+
 # actually apply K-Medoids algorithm
 # extensively justify choice here !!!!!!!!!!!!!!!!!!!!
 kmedoids = KMedoids(n_clusters=3,
@@ -451,14 +498,19 @@ kmedoids = KMedoids(n_clusters=3,
                     metric='seuclidean',
                     method='pam',
                     max_iter=100)
-labels = kmedoids.fit_predict(df_all_famd)
-
+labels = kmedoids.fit_predict(df_transformed_pca)
 
 # add the cluster labels to the original numerical dataframe
 df_numerical['Cluster'] = labels
 print(df_numerical)
+# add the cluster labels to the original categorical dataframe
+df_categorical['Cluster'] = labels
+print(df_categorical)
 
-# Kruskal-Wallis Test for df_numerical
+# STATISTICAL ANALYSIS
+# Numerical attributes:
+# we know from Kolmogorov-Smirnov test that data is not normally distributed => perform non-parametric tests
+# Kruskal-Wallis Test
 feature_numerical = [col for col in df_numerical.columns if col != "Cluster"]
 for feature in feature_numerical:
     groups = [df_numerical[df_numerical['Cluster'] == cluster][[feature]] for cluster in df_numerical['Cluster'].unique()]
@@ -467,7 +519,7 @@ for feature in feature_numerical:
     print("Kruskal-Wallis H-statistic:", stat)
     print("p-value:", p)
 
-# Mann-Whitney U test
+# Pairwise Mann-Whitney U test
 feature_names = []
 cluster1_values = []
 cluster2_values = []
@@ -481,7 +533,6 @@ for feature in feature_numerical:
             if i >= j:
                 # Skip comparisons of a cluster with itself and duplicate comparisons
                 continue
-
             group1 = df_numerical[df_numerical['Cluster'] == cluster1][feature]
             group2 = df_numerical[df_numerical['Cluster'] == cluster2][feature]
             group1 = np.array(group1)
@@ -505,23 +556,24 @@ results_df = pd.DataFrame({
     'Corrected p-values (Bonferroni)': corrected_p_values,
     'Reject Null Hypothesis': reject_hypothesis
 })
+print('\nResults of Pairwise Mann-Whitney U test:')
 print(results_df)
 
-# add the cluster labels to the original categorical dataframe
-df_categorical['Cluster'] = labels
-print(df_categorical)
-
-columns_to_test = [col for col in df_categorical.columns if col != "Cluster"]
-for column in columns_to_test:
+# Categorical attributes:
+# create contingency tables
+# the condition for the Pairwise Chi-Square Test is not respected (they have less than 5 counts for some cells)
+# save contingency tables as csv files, to perform Fisher's test for contingency tables bigger that 2x2 in R
+columns_categorical = [col for col in df_categorical.columns if col != "Cluster"]
+for column in columns_categorical:
     contingency_table = pd.crosstab(df_categorical[column], df_categorical['Cluster'])
     print(f"\nContingency Table for {column}:")
     print(contingency_table)
     print(f"Shape: {contingency_table.shape}")
     contingency_table.to_csv(f"{column}_contingency_table.csv", index=True, header=True)
+# run Fisher.R file to see results (p value is < 0.001)
 
+# mean numerical values for each cluster
 cluster_summary = df_numerical.groupby('Cluster').mean()
-pd.set_option('display.max_columns', None)
-pd.set_option('display.max_rows', None)
 print(cluster_summary)
 
 plt.show()
