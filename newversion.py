@@ -10,9 +10,8 @@ from sklearn_extra.cluster import KMedoids
 from scipy import stats
 from statsmodels.stats.multitest import multipletests
 from sklearn.decomposition import PCA
-from scipy.stats import kstest
+from scipy.stats import kstest, chi2_contingency
 from prince import FAMD
-import time
 
 plt.rcParams['figure.max_open_warning'] = 50
 
@@ -24,9 +23,9 @@ print(df)
 
 # CLEANING
 # print the number NaN in the dataframe, the number of rows and the columns that contain NaN
-print(f'nan in the df: {df.isnull().sum().sum()}')
-print(f'rows with at least 1 nan: {df.isnull().T.any().T.sum()}')
-print(f'columns with at least 1 nan: \n{df.isnull().any()}')
+print(f'\nnan in the df: {df.isnull().sum().sum()}')
+print(f'\nrows with at least 1 nan: {df.isnull().T.any().T.sum()}')
+print(f'\ncolumns with at least 1 nan: \n{df.isnull().any()}')
 # replace the NaN with the median of the column
 print('\nmedian values:')
 print(df.median())
@@ -44,28 +43,28 @@ sum_phq = []
 for row_index in range(150):
     row_sum = df.loc[row_index, col_phq].sum()
     sum_phq.append(row_sum)
-print(f'PHQ sum: {sum_phq}')
+print(f'\nPHQ sum: {sum_phq}')
 
 col_gad = ['gad_1', 'gad_2', 'gad_3', 'gad_4', 'gad_5', 'gad_6', 'gad_7']
 sum_gad = []
 for row_index in range(150):
     row_sum = df.loc[row_index, col_gad].sum()
     sum_gad.append(row_sum)
-print(f'GAD sum: {sum_gad}')
+print(f'\nGAD sum: {sum_gad}')
 
 col_eheals = ['eheals_1', 'eheals_2', 'eheals_3', 'eheals_4', 'eheals_5', 'eheals_6', 'eheals_7', 'eheals_8']
 sum_eheals = []
 for row_index in range(150):
     row_sum = df.loc[row_index, col_eheals].sum()
     sum_eheals.append(row_sum)
-print(f'EHEALS sum: {sum_eheals}')
+print(f'\nEHEALS sum: {sum_eheals}')
 
 col_heas = ['heas_1', 'heas_2', 'heas_3', 'heas_4', 'heas_5', 'heas_6', 'heas_7', 'heas_8', 'heas_9', 'heas_10', 'heas_11', 'heas_12', 'heas_13']
 sum_heas = []
 for row_index in range(150):
     row_sum = df.loc[row_index, col_heas].sum()
     sum_heas.append(row_sum)
-print(f'HEAS sum: {sum_heas}')
+print(f'\nHEAS sum: {sum_heas}')
 
 # the higher the score, the more skeptic the person is about climate change
 # except for the following questions
@@ -81,7 +80,7 @@ sum_ccs = []
 for row_index in range(150):
     row_sum = df.loc[row_index, col_ccs].sum()
     sum_ccs.append(row_sum)
-print(f'CCS sum: {sum_ccs}')
+print(f'\nCCS sum: {sum_ccs}')
 
 # create the new dataframe (df_sum)
 pd.set_option('display.max_columns', None)  # set this option in order to see all columns when printing the dataframes
@@ -226,8 +225,9 @@ plt.ylabel('Count')
 # combinations of two variables in both directions
 combinations = list(itertools.permutations(df_categorical.columns, 2))
 # create stacked bar charts for each pair of variables using a for loop
+plt.figure()
 for combination in combinations:
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots()
     pivot_table = df.groupby(list(combination)).size().unstack()
     pivot_table.plot(kind='bar', stacked=True, ax=ax)
     ax.set_title(f"Stacked Bar Chart for {combination[0]} vs {combination[1]}")
@@ -243,7 +243,7 @@ sns.pairplot(df_no_outliers)
 # perform Kolmogorov-Smirnov test on numerical variables, to test normality
 for col in df_numerical.columns:
     ks_statistic, ks_p_value = kstest(df_numerical[col], 'norm')
-    print(f'Kolmogorov-Smirnov test for {col}:')
+    print(f'\nKolmogorov-Smirnov test for {col}:')
     print(f'KS Statistic: {ks_statistic}')
     print(f'p-value: {ks_p_value}')
 # based on the results, we reject the hypothesis that data is normally distributed
@@ -298,8 +298,8 @@ df_all_famd = pd.DataFrame(df_all_famd, columns=[col for col in df_tot_famd.colu
 pca = PCA()
 pca.fit(df_all_pca)
 variance = pca.explained_variance_ratio_.cumsum()
-plt.figure(12)
-print(f'Comulative explained variance PCA: {variance}')
+plt.figure()
+print(f'\nComulative explained variance PCA: {variance}')
 plt.plot(range(1, len(variance) + 1), variance, marker='o')
 plt.title('Cumulative Explained Variance PCA')
 plt.xlabel('Number of Components')
@@ -323,7 +323,7 @@ famd.fit_transform(df_all_famd)
 eigenvalues = famd.eigenvalues_
 explained_variance = eigenvalues / eigenvalues.sum()
 cumulative_variance=np.cumsum(explained_variance)
-print(f' Cumulative Explained Variance FAMD: {cumulative_variance}')
+print(f'\nCumulative Explained Variance FAMD: {cumulative_variance}')
 plt.figure()
 plt.plot(range(1, len(cumulative_variance) + 1), cumulative_variance, marker='o')
 plt.title('Cumulative Explained Variance FAMD')
@@ -416,7 +416,7 @@ plt.title('Elbow Method for FAMD')
 plt.grid()
 
 # Analytical method: evaluate silhouette scores
-datasets = {  # store dataframes and names in a dictionary
+dataframes = {  # store dataframes and names in a dictionary
     'None OHE': df_all_pca,
     'None EduMap': df_all_famd,
     'PCA': df_transformed_pca,
@@ -424,7 +424,7 @@ datasets = {  # store dataframes and names in a dictionary
 }
 # silhouette scores for different numbers of clusters for each dataset
 plt.figure()
-for method, data in datasets.items():
+for method, data in dataframes.items():
     silhouette_scores = []
     for k in range(2, 11):
         kmedoids = KMedoids(n_clusters=k,
@@ -444,10 +444,13 @@ plt.grid()
 
 # Another analytical method to plot the silhouette scores:
 # Plot silhouette analysis for each dataset
-for method, data in datasets.items():
+for idx, (method, data) in enumerate(dataframes.items()):
+    print(f'\nFor {method}:')
+    fig, axs = plt.subplots(1, 5, figsize=(18, 5))
+    fig.suptitle(f"Silhouette analysis on {method}", fontsize=16)
     range_n_clusters = [2, 3, 4, 5, 6]  # we take a smaller range than before
-    for k in range_n_clusters:
-        plt.figure()
+    for j, k in enumerate(range_n_clusters):
+        ax = axs[j]
         kmedoids = KMedoids(n_clusters=k,
                             random_state=0,
                             init='k-medoids++',
@@ -471,27 +474,36 @@ for method, data in datasets.items():
             ith_cluster_silhouette_values.sort()
             size_cluster_i = ith_cluster_silhouette_values.shape[0]
             y_upper = y_lower + size_cluster_i
-            plt.fill_betweenx(
+            ax.fill_betweenx(
                 np.arange(y_lower, y_upper),
                 0,
                 ith_cluster_silhouette_values,
                 alpha=0.7,
             )
-
-            # Label the silhouette plots with their cluster numbers at the middle
-            plt.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
-
+            # label the silhouette plots with their cluster numbers at the middle
+            ax.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
             # Compute the new y_lower for next plot
             y_lower = y_upper + 10  # 10 for the 0 samples
-
-        plt.title(f"Silhouette analysis on {method} with n_clusters = {k}")
-        plt.xlabel("The silhouette coefficient values")
-        plt.ylabel("Cluster label")
+        ax.set_title(f"with n_clusters = {k}")
+        ax.set_xlabel("Silhouette coefficient values")
+        ax.set_ylabel("Cluster label")
+        ax.set_yticks([])
         # vertical line for average silhouette score of all the values
-        plt.axvline(x=silhouette_avg, color="red", linestyle="--")
+        ax.axvline(x=silhouette_avg, color="red", linestyle="--")
 
-# actually apply K-Medoids algorithm
-# extensively justify choice here !!!!!!!!!!!!!!!!!!!!
+# We applied the actual kmedoids algorithm with all possible combinations,
+# that we thought were promising (3 and 4 clusters, to the 4 dataframes)
+# What we found was:
+# For 4 clusters:
+# all the dfs have more non-significant results in the statistical tests, meaning that 4 clusters are too much
+# For 3 clusters:
+# df with no preprocessing and mapped education (df_all_famd) -> gender has non-significant results,
+# age, income and phq have 1 non-significant result over 3
+# df with no preprocessing and one hot encoding (df_all_pca) -> income has one non-significant result over 3,
+# silhouette score for half of the samples of cluster 2 is < 0
+# df with PCA (df_transformed_pca) -> age and phq have one non-significant result over 3
+# df with FAMD (df_transformed_famd) -> age, gad and heas have one non-significant result over 3
+# considering these results, we finally chose to apply the KMedoids with 3 clusters, on the df to which we applied PCA
 kmedoids = KMedoids(n_clusters=3,
                     random_state=0,
                     init='k-medoids++',
@@ -499,23 +511,27 @@ kmedoids = KMedoids(n_clusters=3,
                     method='pam',
                     max_iter=100)
 labels = kmedoids.fit_predict(df_transformed_pca)
+# print number of samples in each cluster
+print(f'\nNumber of samples in each cluster:{np.bincount(labels)}')
 
-# add the cluster labels to the original numerical dataframe
-df_numerical['Cluster'] = labels
-print(df_numerical)
-# add the cluster labels to the original categorical dataframe
+# add the cluster labels to the numerical dataframe (the one resulting from data processing)
+df_no_outliers['Cluster'] = labels
+print('\nNumerical df with cluster labels:')
+print(df_no_outliers)
+# add the cluster labels to the categorical dataframe
 df_categorical['Cluster'] = labels
+print('\nCategorical df with cluster labels:')
 print(df_categorical)
 
 # STATISTICAL ANALYSIS
 # Numerical attributes:
 # we know from Kolmogorov-Smirnov test that data is not normally distributed => perform non-parametric tests
 # Kruskal-Wallis Test
-feature_numerical = [col for col in df_numerical.columns if col != "Cluster"]
+feature_numerical = [col for col in df_no_outliers.columns if col != "Cluster"]
 for feature in feature_numerical:
-    groups = [df_numerical[df_numerical['Cluster'] == cluster][[feature]] for cluster in df_numerical['Cluster'].unique()]
+    groups = [df_no_outliers[df_no_outliers['Cluster'] == cluster][[feature]] for cluster in df_no_outliers['Cluster'].unique()]
     stat, p = stats.kruskal(*groups)
-    print(f"Kruskal-Wallis Test for {feature}:")
+    print(f"\nKruskal-Wallis Test for {feature}:")
     print("Kruskal-Wallis H-statistic:", stat)
     print("p-value:", p)
 
@@ -527,14 +543,14 @@ original_p_values = []
 corrected_p_values = []
 reject_hypothesis = []
 for feature in feature_numerical:
-    clusters = df_numerical['Cluster'].unique()
+    clusters = df_no_outliers['Cluster'].unique()
     for i, cluster1 in enumerate(clusters):
         for j, cluster2 in enumerate(clusters):
             if i >= j:
                 # Skip comparisons of a cluster with itself and duplicate comparisons
                 continue
-            group1 = df_numerical[df_numerical['Cluster'] == cluster1][feature]
-            group2 = df_numerical[df_numerical['Cluster'] == cluster2][feature]
+            group1 = df_no_outliers[df_no_outliers['Cluster'] == cluster1][feature]
+            group2 = df_no_outliers[df_no_outliers['Cluster'] == cluster2][feature]
             group1 = np.array(group1)
             group2 = np.array(group2)
             stat, p = stats.mannwhitneyu(group1, group2)
@@ -561,19 +577,35 @@ print(results_df)
 
 # Categorical attributes:
 # create contingency tables
-# the condition for the Pairwise Chi-Square Test is not respected (they have less than 5 counts for some cells)
-# save contingency tables as csv files, to perform Fisher's test for contingency tables bigger that 2x2 in R
+
+# Create dictionary to store contingency tables
+contingency_tables = {}
 columns_categorical = [col for col in df_categorical.columns if col != "Cluster"]
 for column in columns_categorical:
     contingency_table = pd.crosstab(df_categorical[column], df_categorical['Cluster'])
     print(f"\nContingency Table for {column}:")
     print(contingency_table)
     print(f"Shape: {contingency_table.shape}")
+    # the condition for the Pairwise Chi-Square Test is not respected for education and marital
+    # (they have less than 5 counts for some cells), but it is borderline for gender (only one cell with 4 counts)
+
+    # save contingency tables to the dictionary, so that we can use the gender table outside the loop
+    contingency_tables[column] = contingency_table
+    # save contingency tables as csv files, to perform Fisher's test in R (for contingency tables larger that 2x2)
     contingency_table.to_csv(f"{column}_contingency_table.csv", index=True, header=True)
-# run Fisher.R file to see results (p value is < 0.001)
 
-# mean numerical values for each cluster
-cluster_summary = df_numerical.groupby('Cluster').mean()
-print(cluster_summary)
+# run Fisher.R file to see the results for all 3 variables (p value is < 0.001)
 
+# Chi Square test for gender
+overall_chi2_stat, overall_chi2_p_value, _, _ = chi2_contingency(contingency_tables['gender'])
+print(f"\nChi-square Test for gender: Statistic - {overall_chi2_stat}, P-Value - {overall_chi2_p_value}")
+
+# PERSONAS CREATION
+# For each cluster:
+# Extract median values, 25th and 75th percentile for numerical variables
+cluster_summary = df_no_outliers.groupby('Cluster').agg(['median', lambda x: x.quantile(0.25), lambda x: x.quantile(0.75)])
+print(f'\nNumerical summary:\n {cluster_summary}')
+# Extract mode and percentages for categorical variables
+# we can get them from the contingency tables
+# See table for detailed description
 plt.show()

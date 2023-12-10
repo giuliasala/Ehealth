@@ -3,11 +3,12 @@ gender <- read.csv("gender_contingency_table.csv", header = FALSE, skip = 1, row
 education <- read.csv("education_contingency_table.csv", header = FALSE, skip = 1, row.names = 1)
 marital <- read.csv("marital_contingency_table.csv", header = FALSE, skip = 1, row.names = 1)
 
-num_simulations <- 900000 # the higher this number, the more accurate the simulation (but also computationally long)
-# perform Fisher's test
-fisher_result_gender <- fisher.test(gender, simulate.p.value = TRUE, B = num_simulations)
-fisher_result_education <- fisher.test(education, simulate.p.value = TRUE, B = num_simulations)
-fisher_result_marital <- fisher.test(marital, simulate.p.value = TRUE, B = num_simulations)
+# perform Fisher's test:
+# increase the workspace, in order to be able to perform the exact test
+# alternatively, if it takes too long, use simulate.p.value=TRUE and B=number of simulations
+fisher_result_gender <- fisher.test(gender, workspace=90000000)
+fisher_result_education <- fisher.test(education, workspace=90000000)
+fisher_result_marital <- fisher.test(marital, workspace=90000000)
 
 # print results
 print(fisher_result_gender)
@@ -25,4 +26,5 @@ num_tests <- length(p_values)
 alpha <- 0.05
 bonferroni_corrected <- p_values * num_tests
 significant_results <- bonferroni_corrected < alpha
+print(bonferroni_corrected)
 print(significant_results)
